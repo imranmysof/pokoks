@@ -7,6 +7,8 @@ crops, poultry, meat and seafood, and the production statistics behind them.
 Everything is a static React app. There is no backend and no API key: two scripts pull the
 data into JSON files, and the app reads those.
 
+Live at **https://imranmysof.github.io/pokoks/**, rebuilt from source every morning.
+
 ## What it does
 
 **Sawit (palm)** — Daily Malaysian crude palm oil prices with a 30 day forecast, an
@@ -98,6 +100,28 @@ and ends at 2022, the district tables cover only 2017, and fish landings stop in
 
 **Some prices are controlled.** The subsidised 1 kg cooking oil packet sells at a government
 ceiling, so it is excluded from the retail average and reported separately.
+
+## Deployment
+
+`.github/workflows/deploy.yml` rebuilds the data, builds the site and publishes it to
+GitHub Pages on every push to `main`, once a day on a schedule, and on demand from the
+Actions tab. The daily run matters because prices change daily but the data files are
+not committed.
+
+Pages must be set to **Source: GitHub Actions** (Settings, Pages). Serving from a branch
+cannot work here: the repository has no built bundle and no data in it, so a branch-served
+site returns the development `index.html` and renders blank.
+
+A project site lives under `/<repo>/`, so the workflow passes `BASE_PATH` to the build and
+Vite prefixes every asset URL. `src/lib/data.ts` reads `import.meta.env.BASE_URL`, so the
+JSON fetches follow the same prefix. To build for a Pages-style path locally:
+
+```bash
+BASE_PATH=/pokoks/ npm run build && BASE_PATH=/pokoks/ npm run preview
+```
+
+On Git Bash for Windows, prefix that with `MSYS_NO_PATHCONV=1`, otherwise the shell
+rewrites `/pokoks/` into a Windows path and the asset URLs come out wrong.
 
 ## Project layout
 

@@ -1,0 +1,68 @@
+name: Build data and deploy to Pages
+
+# The generated price data is not committed, so Pages cannot serve a working site from
+# the repository as-is. This workflow rebuilds the data from source, builds the app, and
+# publishes the result.
+on:
+  push:
+    branches: [main]
+  # Prices are daily, so refresh the published site each morning (01:00 UTC = 09:00 MYT).
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish rather than cancelling it half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build price and crop data
+        # Streams six months of PriceCatcher Parquet plus the DOSM statistics tables.
+        run: npm run data
+
+      - name: Fetch palm oil prices
+        # MPOB is scraped from a public chart page, so an outage there should degrade the
+        # palm panel rather than block the whole deployment.
+        continue-on-error: true
+        run: npm run data:palm
+
+      - name: Build site
+        env:
+          # Project sites live under /<repo>/, so derive the prefix from the repository name.
+          BASE_PATH: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
