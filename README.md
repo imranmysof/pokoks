@@ -112,6 +112,11 @@ Pages must be set to **Source: GitHub Actions** (Settings, Pages). Serving from 
 cannot work here: the repository has no built bundle and no data in it, so a branch-served
 site returns the development `index.html` and renders blank.
 
+One thing to watch: GitHub disables scheduled workflows in a public repository after 60
+days with no repository activity, so the daily data refresh stops silently if the project
+goes quiet for two months. Re-enable it from the Actions tab, or push any commit. The
+`workflow_dispatch` trigger means you can also rebuild on demand at any time.
+
 A project site lives under `/<repo>/`, so the workflow passes `BASE_PATH` to the build and
 Vite prefixes every asset URL. `src/lib/data.ts` reads `import.meta.env.BASE_URL`, so the
 JSON fetches follow the same prefix. To build for a Pages-style path locally:
