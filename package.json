@@ -1,0 +1,34 @@
+{
+  "name": "pokoks",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "data": "node scripts/build-data.mjs --months 6",
+    "data:palm": "node scripts/fetch-palm.mjs --range 6M",
+    "data:all": "npm run data && npm run data:palm",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "hyparquet": "^1.30.0",
+    "hyparquet-compressors": "^1.1.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "recharts": "^3.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.4",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "oxlint": "^1.79.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2"
+  },
+  "description": "Malaysian agriculture and horticulture price tracker built on DOSM and MPOB open data",
+  "license": "MIT"
+}

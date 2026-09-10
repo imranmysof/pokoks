@@ -1,0 +1,20 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+# Generated data snapshots. Rebuild with: npm run data:all
+public/data/
+
+logs
+*.log
+npm-debug.log*
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
