@@ -86,7 +86,7 @@ export default function App() {
           </span>
           <div>
             <h1>Pokoks</h1>
-            <p>Malaysian agriculture and horticulture prices, from official open data</p>
+            <p>Malaysian farm, livestock and sea prices, from official open data</p>
           </div>
         </div>
         <div className="topbar-right">
@@ -249,8 +249,21 @@ function About({ meta, palm }: { meta: Meta; palm: PalmData | null }) {
             mill statement before relying on it.
           </li>
           <li>
-            <strong>Crop statistics lag prices by years.</strong> Prices are daily. The agriculture
-            census is annual and its most recent release covers 2022.
+            <strong>Durian has no price, only production.</strong> PriceCatcher surveys eighteen
+            fruits and durian is not among them, nor are rambutan, mangosteen or langsat. They
+            appear only as tonnages in the district crop tables, under largest crops by species.
+            For durian prices you would need FAMA or a state agriculture department, neither of
+            which publishes a machine-readable feed.
+          </li>
+          <li>
+            <strong>Livestock is priced as meat, not as animals.</strong> The survey covers chicken,
+            beef, buffalo, mutton and pork at the counter. Live animals appear only as live chicken
+            and a live pig carcass weight, so there is no cattle or goat auction price here.
+          </li>
+          <li>
+            <strong>Crop statistics lag prices by years.</strong> Prices are daily. The state crop
+            census is annual and ends at 2022, the district tables only cover 2017, and marine fish
+            landings stop in 2023.
           </li>
           <li>
             <strong>Forecasts extrapolate, they do not explain.</strong> The model sees only past

@@ -630,3 +630,38 @@
   margin-top: 0;
   margin-bottom: 6px;
 }
+
+.row-thin th,
+.row-thin td {
+  color: var(--text-muted);
+}
+
+.row-flag {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.notice {
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--series-2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  max-width: 78ch;
+}
+
+/* The sector switcher can outgrow a phone; let it scroll rather than push the layout. */
+.segmented {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.segmented::-webkit-scrollbar {
+  display: none;
+}

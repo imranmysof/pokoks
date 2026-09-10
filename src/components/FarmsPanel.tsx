@@ -20,6 +20,16 @@ const CROP_LABEL: Record<string, string> = {
 
 const cropLabel = (c: string) => CROP_LABEL[c] ?? tidy(c.replace(/_/g, ' '))
 
+const COAST_LABEL: Record<string, string> = {
+  west: 'West coast, Peninsular Malaysia',
+  east: 'East coast, Peninsular Malaysia',
+  borneo: 'Sabah, Sarawak & Labuan',
+  all: 'All coasts',
+}
+
+const monthName = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-MY', { month: 'long', year: 'numeric' })
+
 export function FarmsPanel({ crops, items, meta }: { crops: CropsData; items: Item[]; meta: Meta }) {
   const [measure, setMeasure] = useState<Measure>('production')
   const [crop, setCrop] = useState('all')
@@ -68,18 +78,62 @@ export function FarmsPanel({ crops, items, meta }: { crops: CropsData; items: It
       .sort((a, b) => b.value - a.value)
   }, [nationalLatest, measure])
 
+  // The district tables are published for a different, older year than the state table,
+  // so they need their own latest year rather than the state one.
+  const districtYear = useMemo(() => {
+    const dates = [...new Set(crops.districtProduction.map((r) => r.date))].sort()
+    return dates[dates.length - 1] ?? null
+  }, [crops.districtProduction])
+
   const topSpecies = useMemo(() => {
-    const rows = crops.districtProduction.filter((r) => r.date === latestYear)
+    if (!districtYear) return []
     const agg = new Map<string, number>()
-    for (const r of rows) {
+    for (const r of crops.districtProduction) {
+      if (r.date !== districtYear) continue
       const v = r.production ?? 0
       if (v > 0) agg.set(r.crop_species, (agg.get(r.crop_species) ?? 0) + v)
     }
     return [...agg.entries()]
       .map(([label, value]) => ({ label: tidy(label.replace(/_/g, ' ')), value }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 12)
-  }, [crops.districtProduction, latestYear])
+      .slice(0, 15)
+  }, [crops.districtProduction, districtYear])
+
+  // Marine fish landings, most recent full calendar year available.
+  const fish = useMemo(() => {
+    const rows = crops.fishLandings ?? []
+    if (!rows.length) return null
+    const national = rows.filter((r) => r.state === 'Malaysia' && r.coast === 'all')
+    const latestMonth = national.reduce((m, r) => (r.date > m ? r.date : m), national[0]?.date ?? '')
+    const year = latestMonth.slice(0, 4)
+    const monthly = national
+      .filter((r) => r.date.startsWith(year))
+      .sort((a, b) => a.date.localeCompare(b.date))
+    const total = monthly.reduce((s, r) => s + r.landings, 0)
+    // Individual states are tagged with the coast they land on (west, east or borneo),
+    // never "all"; only the two roll-up rows use that. Johor has both coasts, so sum.
+    const byState = new Map<string, number>()
+    const byCoast = new Map<string, number>()
+    for (const r of rows) {
+      if (!r.date.startsWith(year)) continue
+      if (r.state === 'Malaysia' || r.state === 'All States') continue
+      byState.set(r.state, (byState.get(r.state) ?? 0) + r.landings)
+      byCoast.set(r.coast, (byCoast.get(r.coast) ?? 0) + r.landings)
+    }
+    return {
+      year,
+      total,
+      monthly,
+      byState: [...byState.entries()]
+        .map(([label, value]) => ({ label, value }))
+        .filter((r) => r.value > 0)
+        .sort((a, b) => b.value - a.value),
+      byCoast: [...byCoast.entries()]
+        .map(([label, value]) => ({ label: COAST_LABEL[label] ?? tidy(label), value }))
+        .filter((r) => r.value > 0)
+        .sort((a, b) => b.value - a.value),
+    }
+  }, [crops.fishLandings])
 
   const surveyStates = useMemo(() => {
     const agg = new Map<string, number>()
@@ -146,9 +200,50 @@ export function FarmsPanel({ crops, items, meta }: { crops: CropsData; items: It
         <RankBars rows={byCrop} format={fmt} />
       </Panel>
 
-      <Panel title="Largest crops by species" note="Aggregated from the district-level production tables.">
-        <RankBars rows={topSpecies} format={(v) => `${fmt(v)} t`} />
+      <Panel
+        title="Largest crops by species"
+        note={
+          districtYear
+            ? `Aggregated from the district production tables, which are published only for ${new Date(districtYear).getFullYear()}. This is the only place durian, rambutan and other named fruit appear.`
+            : 'District production tables are not available.'
+        }
+      >
+        {topSpecies.length ? (
+          <RankBars rows={topSpecies} format={(v) => `${fmt(v)} t`} />
+        ) : (
+          <Empty>No district-level production data in this snapshot.</Empty>
+        )}
       </Panel>
+
+      {fish ? (
+        <Panel
+          title={`Marine fish landings, ${fish.year}`}
+          note="What Malaysian fishing boats actually brought ashore. Landings are volume, not price."
+        >
+          <div className="tiles">
+            <StatTile label="Total landed" value={`${fmt(fish.total)} t`} sub={`${fish.monthly.length} months reported`} tone="hero" />
+            <StatTile
+              label="Best month"
+              value={`${fmt(Math.max(...fish.monthly.map((m) => m.landings)))} t`}
+              sub={monthName(fish.monthly.reduce((a, b) => (b.landings > a.landings ? b : a)).date)}
+            />
+            <StatTile
+              label="Leanest month"
+              value={`${fmt(Math.min(...fish.monthly.map((m) => m.landings)))} t`}
+              sub={monthName(fish.monthly.reduce((a, b) => (b.landings < a.landings ? b : a)).date)}
+            />
+            <StatTile label="States landing fish" value={String(fish.byState.length)} />
+          </div>
+          <h3 className="sub-head">Landings by coast (tonnes)</h3>
+          <RankBars rows={fish.byCoast} format={(v) => `${fmt(v)} t`} />
+          <h3 className="sub-head">Landings by state (tonnes)</h3>
+          <RankBars rows={fish.byState} format={(v) => `${fmt(v)} t`} />
+          <p className="disclaimer">
+            Marine landings only. Aquaculture and freshwater catch are not in this table, and the
+            series ends where the Department of Statistics stopped publishing it.
+          </p>
+        </Panel>
+      ) : null}
 
       <Panel
         title="Price survey coverage"
@@ -156,7 +251,7 @@ export function FarmsPanel({ crops, items, meta }: { crops: CropsData; items: It
       >
         <div className="tiles">
           <StatTile label="Premises in the register" value={count(meta.premises)} tone="hero" />
-          <StatTile label="Items tracked here" value={count(meta.items)} sub="agriculture and horticulture only" />
+          <StatTile label="Items tracked here" value={count(meta.items)} sub="crops, livestock and seafood" />
           <StatTile label="Price records scanned" value={count(meta.rowsScanned)} sub={`${meta.months.length} months`} />
           <StatTile label="States and territories" value={String(surveyStates.length)} />
         </div>

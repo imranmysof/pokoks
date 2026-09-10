@@ -39,12 +39,22 @@ export function ItemDetail({ item, onClose }: { item: Item; onClose: () => void 
   // A fresh `?? []` each render would give every useMemo below a new dependency, re-running
   // the forecast's parameter search on every keystroke and hover.
   const series = data?.series ?? EMPTY_SERIES
-  const dates = useMemo(() => series.map((p) => p.d), [series])
-  const values = useMemo(() => series.map((p) => p.avg), [series])
-  const fc = useMemo(() => (values.length ? runForecast(dates, values, 30) : null), [dates, values])
+
+  // Partial collection days (a handful of premises) would drag the trend line and the
+  // forecast around, so charts use fully surveyed days. The table still shows everything.
+  const solid = useMemo(() => series.filter((p) => !p.thin), [series])
+  const thinCount = series.length - solid.length
+
+  const dates = useMemo(() => solid.map((p) => p.d), [solid])
+  const values = useMemo(() => solid.map((p) => p.avg), [solid])
+  // A sparse item has no trustworthy daily average, so projecting it would be false precision.
+  const fc = useMemo(
+    () => (values.length && !item.sparse ? runForecast(dates, values, 30) : null),
+    [dates, values, item.sparse],
+  )
 
   const trendRows = useMemo<TrendRow[]>(() => {
-    const rows: TrendRow[] = series.map((p) => ({
+    const rows: TrendRow[] = solid.map((p) => ({
       d: p.d,
       actual: p.avg,
       // The interquartile range, not the outright min and max: one mispriced stall would
@@ -58,28 +68,28 @@ export function ItemDetail({ item, onClose }: { item: Item; onClose: () => void 
       for (const p of fc.points) rows.push({ d: p.d, actual: null, forecast: p.value, band: [p.lo, p.hi] })
     }
     return rows
-  }, [series, fc])
+  }, [solid, fc])
 
   const channelRows = useMemo<TrendRow[]>(
     () =>
-      series.map((p) => ({
+      solid.map((p) => ({
         d: p.d,
         actual: p.ch.pasar?.avg ?? null,
         second: p.ch.runcit?.avg ?? null,
       })),
-    [series],
+    [solid],
   )
   const hasChannelSplit = channelRows.some((r) => r.actual != null) && channelRows.some((r) => r.second != null)
 
   const stateRows = useMemo(() => {
-    const last = series[series.length - 1]
+    const last = solid[solid.length - 1]
     if (!last) return []
     return Object.entries(last.st)
       .map(([label, value]) => ({ label, value, sub: `${item.activeByState[label] ?? 0} premises` }))
       .sort((a, b) => b.value - a.value)
-  }, [series, item.activeByState])
+  }, [solid, item.activeByState])
 
-  const latestPoint = series[series.length - 1]
+  const latestPoint = solid[solid.length - 1]
   const perKgNote = item.kg && item.kg !== 1 ? `${money(item.latest.avg / item.kg)} per kg` : null
   const spread = item.pasar != null && item.runcit != null ? ((item.runcit - item.pasar) / item.pasar) * 100 : null
   const spreadNote =
@@ -97,8 +107,9 @@ export function ItemDetail({ item, onClose }: { item: Item; onClose: () => void 
           <h2>{tidy(item.name)}</h2>
           <p className="detail-sub">
             Priced per {item.unit}
-            {perKgNote ? ` · ${perKgNote}` : ''} · {count(item.points)} days of data from{' '}
-            {longDate(item.first)}
+            {perKgNote ? ` · ${perKgNote}` : ''} · {count(solid.length || item.points)} fully
+            surveyed days from {longDate(item.first)}
+            {thinCount > 0 ? ` · ${count(thinCount)} partial days excluded from charts` : ''}
           </p>
         </div>
         <button type="button" className="ghost" onClick={onClose}>
@@ -120,6 +131,14 @@ export function ItemDetail({ item, onClose }: { item: Item; onClose: () => void 
         <StatTile label="Retail" value={money(item.runcit)} sub="supermarket, mini market, kedai runcit" />
       </div>
 
+      {item.sparse ? (
+        <p className="notice">
+          This item is surveyed in only about {count(item.typicalPremises)} premises on a typical
+          day, too few to support a reliable average. Prices are shown as collected, and no
+          movement figures or forecast are offered.
+        </p>
+      ) : null}
+
       {error ? <Empty>{error}</Empty> : null}
       {!data && !error ? <Empty>Loading daily prices…</Empty> : null}
 
@@ -134,7 +153,7 @@ export function ItemDetail({ item, onClose }: { item: Item; onClose: () => void 
               <Legend
                 items={[
                   { color: 'var(--series-1)', label: 'Average across premises' },
-                  { color: 'var(--series-1)', label: 'Forecast, next 30 days', dashed: true },
+                  ...(fc ? [{ color: 'var(--series-1)', label: 'Forecast, next 30 days', dashed: true }] : []),
                 ]}
               />
               <p className="disclaimer band-note">
@@ -221,8 +240,11 @@ export function ItemDetail({ item, onClose }: { item: Item; onClose: () => void 
                 </thead>
                 <tbody>
                   {[...series].reverse().slice(0, 60).map((p) => (
-                    <tr key={p.d}>
-                      <th scope="row">{longDate(p.d)}</th>
+                    <tr key={p.d} className={p.thin ? 'row-thin' : undefined}>
+                      <th scope="row">
+                        {longDate(p.d)}
+                        {p.thin ? <span className="row-flag"> partial</span> : null}
+                      </th>
                       <td className="tnum">{money(p.avg)}</td>
                       <td className="tnum">{money(p.med)}</td>
                       <td className="tnum">{money(p.min)}</td>
@@ -235,6 +257,12 @@ export function ItemDetail({ item, onClose }: { item: Item; onClose: () => void 
                 </tbody>
               </table>
             </div>
+          ) : null}
+          {view === 'table' && thinCount > 0 ? (
+            <p className="disclaimer">
+              Days marked partial were only a small collection round, so their average covers far
+              fewer premises than usual. They are listed here but left out of every chart.
+            </p>
           ) : null}
         </>
       ) : null}

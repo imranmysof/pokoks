@@ -8,15 +8,28 @@ import path from 'node:path';
 
 const args = process.argv.slice(2);
 const MONTHS = Number(args[args.indexOf('--months') + 1] || 6);
+// A daily average taken across a handful of shops is not a market price. A day counts as
+// fully surveyed only if it clears both an absolute premise floor and half of the item's
+// own typical coverage.
+const MIN_PREMISES_PER_DAY = 20;
+const SOLID_DAY_SHARE = 0.5;
+
 const OUT = path.resolve('public/data');
 const SERIES_DIR = path.join(OUT, 'series');
 const STORAGE = 'https://storage.data.gov.my/pricecatcher';
 const API = 'https://api.data.gov.my';
 
-// Agriculture / horticulture categories inside PriceCatcher (KPDN survey, published via DOSM).
+// Farm and sea produce inside PriceCatcher (KPDN survey, published via DOSM). Everything
+// here is a primary product a Malaysian grower, rearer or fisherman actually sells.
+// Deliberately excluded: packaged groceries, drinks, toiletries and prepared restaurant food.
 const AGRI_CATEGORIES = new Set([
+  // Horticulture
   'BUAH-BUAHAN', 'SAYUR-SAYURAN', 'KELAPA', 'BAWANG', 'KACANG', 'UBI KENTANG',
-  'REMPAH RATUS (TIDAK BERBUNGKUS)', 'CILI KERING', 'BERAS', 'TELUR',
+  'REMPAH RATUS (TIDAK BERBUNGKUS)', 'CILI KERING', 'BERAS',
+  // Livestock and poultry
+  'AYAM', 'DAGING', 'TELUR',
+  // Fisheries
+  'BAHAN LAUT', 'IKAN DARAT', 'HASIL LAUT KERING',
 ]);
 // Palm-based cooking oil (minyak masak tulen = 100% palm olein, sebatian = palm blend).
 const isPalmOil = (it) => it.item_category === 'MINYAK DAN LEMAK' && /MINYAK MASAK/.test(it.item || '');
@@ -52,6 +65,23 @@ const quantile = (a, q) => {
   return lo === hi ? s[lo] : s[lo] + (s[hi] - s[lo]) * (pos - lo);
 };
 
+/**
+ * A few PriceCatcher item names carry a mangled comparison symbol, e.g.
+ * "UDANG PUTIH KECIL (b\t% 61 EKOR SEKILOGRAM)". Context fixes the mapping:
+ * small prawns are counted at 61 or more per kilogram (the large grade is stated as
+ * 41 to 60), and "IKAN JENAHAK (b\t% 1 KILOGRAM SEEKOR)" is the large grade, so
+ * "b\t%" is a broken ">=". The rarer "b\t$" appears on grades that read as an upper
+ * bound, so it is "<=". Sibling items spell both symbols correctly, which is what
+ * these are compared against.
+ */
+function cleanName(name) {
+  return name
+    .replace(/b\t%/g, '≥')
+    .replace(/b\t\$/g, '≤')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 // Unit -> kg multiplier (null when not mass based).
 function kgFactor(unit) {
   if (!unit) return null;
@@ -81,7 +111,7 @@ async function main() {
     if (it.item_code < 0 || !it.item) continue;
     if (AGRI_CATEGORIES.has(it.item_category) || isPalmOil(it)) {
       items.set(Number(it.item_code), {
-        code: Number(it.item_code), name: it.item, unit: it.unit, group: it.item_group,
+        code: Number(it.item_code), name: cleanName(it.item), unit: it.unit, group: it.item_group,
         category: it.item_category, palm: isPalmOil(it), kg: kgFactor(it.unit),
       });
     }
@@ -161,18 +191,35 @@ async function main() {
       };
     });
     if (series.length < 3) continue;
-    const last = series[series.length - 1];
+
+    // About one day in eight is a partial collection round covering a handful of premises.
+    // Anchoring a percentage change on such a day produces nonsense, so headline figures use
+    // only "solid" days: those with a real sample, both absolutely and relative to this item.
+    const typicalN = median(series.map((s) => s.n));
+    const minN = Math.max(MIN_PREMISES_PER_DAY, Math.round(typicalN * SOLID_DAY_SHARE));
+    const solidDays = series.filter((s) => s.n >= minN);
+
+    // Some items (imported meat cuts, specialty rice) are only ever seen in a few shops.
+    // They stay listed, but nothing is claimed about how their price is moving.
+    const sparse = solidDays.length < 3;
+    const solid = sparse ? series : solidDays;
+
+    const last = solid[solid.length - 1];
     const lastDate = new Date(last.d);
     const at = (daysAgo) => {
       const target = ymd(new Date(lastDate.getTime() - daysAgo * 86400000));
       let best = null;
-      for (const s of series) {
+      for (const s of solid) {
         if (s.d <= target) best = s;
         else break;
       }
-      return best;
+      // Never compare against a point that is not actually about `daysAgo` old: if the
+      // series starts later than that, there is nothing honest to report.
+      if (!best || best === last) return null;
+      const age = (lastDate.getTime() - Date.parse(best.d)) / 86400000;
+      return age > daysAgo * 2 ? null : best;
     };
-    const pct = (a, b) => (a && b ? round(((a.avg - b.avg) / b.avg) * 100, 1) : null);
+    const pct = (a, b) => (sparse || !a || !b ? null : round(((a.avg - b.avg) / b.avg) * 100, 1));
     const cutoff30 = ymd(new Date(lastDate.getTime() - 30 * 86400000));
     const active30 = new Set();
     for (const d of dates) if (d > cutoff30) for (const p of byDate.get(d).prem) active30.add(p);
@@ -188,22 +235,34 @@ async function main() {
       pasar: last.ch.pasar?.avg ?? null,
       runcit: last.ch.runcit?.avg ?? null,
       change7: pct(last, at(7)), change30: pct(last, at(30)), change90: pct(last, at(90)),
-      spark: series.slice(-30).map((s) => s.avg),
+      spark: solid.slice(-30).map((s) => s.avg),
       activePremises: active30.size, activeByState,
       first: series[0].d, points: series.length,
+      // How much of the record is usable, so the app can be honest about coverage.
+      solidPoints: solidDays.length, typicalPremises: Math.round(typicalN), sparse,
     });
-    await writeFile(path.join(SERIES_DIR, `${code}.json`), JSON.stringify({ code, series }));
+    // Mark partial collection days so the app can leave them out of trends and forecasts
+    // while still keeping them available in the table view.
+    // A sparse item has no fully surveyed days to fall back on, so nothing is marked.
+    const marked = sparse ? series : series.map((s) => (s.n >= minN ? s : { ...s, thin: true }));
+    await writeFile(path.join(SERIES_DIR, `${code}.json`), JSON.stringify({ code, minN, sparse, series: marked }));
   }
   catalogue.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
   await writeFile(path.join(OUT, 'items.json'), JSON.stringify(catalogue));
 
-  console.log('Loading DOSM crop statistics...');
-  const cropsState = await fetchJson(`${API}/opendosm?id=crops_state&limit=100000`);
-  const cropsDistrict = await fetchJson(`${API}/opendosm?id=crops_district_production&limit=100000`);
-  const cropsArea = await fetchJson(`${API}/opendosm?id=crops_district_area&limit=100000`);
+  console.log('Loading DOSM agriculture statistics...');
+  const [cropsState, cropsDistrict, cropsArea, fishLandings, timber] = await Promise.all([
+    fetchJson(`${API}/opendosm?id=crops_state&limit=100000`),
+    fetchJson(`${API}/opendosm?id=crops_district_production&limit=100000`),
+    fetchJson(`${API}/opendosm?id=crops_district_area&limit=100000`),
+    fetchJson(`${API}/data-catalogue?id=fish_landings&limit=100000`),
+    fetchJson(`${API}/data-catalogue?id=timber_production&limit=100000`),
+  ]);
   await writeFile(path.join(OUT, 'crops.json'), JSON.stringify({
     state: cropsState, districtProduction: cropsDistrict, districtArea: cropsArea,
+    fishLandings, timber,
   }));
+  console.log(`Crops ${cropsState.length}, districts ${cropsDistrict.length}, fish ${fishLandings.length}, timber ${timber.length}`);
 
   if (!existsSync(path.join(OUT, 'palm.json'))) {
     console.log('Note: palm.json is missing. Run "npm run data:palm" for palm oil prices.');
@@ -219,6 +278,8 @@ async function main() {
       { name: 'Crop Area & Production by State (DOSM)', url: 'https://open.dosm.gov.my/data-catalogue/crops_state', licence: 'CC BY 4.0' },
       { name: 'Crop Production by District (DOSM)', url: 'https://open.dosm.gov.my/data-catalogue/crops_district_production', licence: 'CC BY 4.0' },
       { name: 'Crop Area by District (DOSM)', url: 'https://open.dosm.gov.my/data-catalogue/crops_district_area', licence: 'CC BY 4.0' },
+      { name: 'Monthly Landings of Marine Fish by State (DOSM)', url: 'https://open.dosm.gov.my/data-catalogue/fish_landings', licence: 'CC BY 4.0' },
+      { name: 'Production of Major Timber Products by State (DOSM)', url: 'https://open.dosm.gov.my/data-catalogue/timber_production', licence: 'CC BY 4.0' },
     ],
   }, null, 2));
   console.log(`Done: ${catalogue.length} items, ${totalRows} rows scanned, months ${loaded.join(', ')}`);

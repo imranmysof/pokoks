@@ -17,12 +17,18 @@ export interface SeriesPoint {
   max: number
   /** Distinct premises reporting that day. */
   n: number
+  /** True on partial collection days, whose small sample makes the average unreliable. */
+  thin?: boolean
   ch: Partial<Record<Channel, ChannelPoint>>
   st: Record<string, number>
 }
 
 export interface ItemSeries {
   code: number
+  /** Minimum premises for a day to count as fully surveyed. */
+  minN?: number
+  /** True when the item is seen in too few shops for reliable statistics. */
+  sparse?: boolean
   series: SeriesPoint[]
 }
 
@@ -55,6 +61,12 @@ export interface Item {
   activeByState: Record<string, number>
   first: string
   points: number
+  /** Days with a full survey sample, out of `points`. */
+  solidPoints?: number
+  /** Typical number of premises reporting on a normal day. */
+  typicalPremises?: number
+  /** True when the item is seen in too few shops to say how its price is moving. */
+  sparse?: boolean
 }
 
 export interface PalmPoint {
@@ -90,10 +102,26 @@ export interface CropDistrictRow {
   planted_area?: number
 }
 
+export interface FishLandingRow {
+  date: string
+  state: string
+  coast: string
+  landings: number
+}
+
+export interface TimberRow {
+  date: string
+  state: string
+  product: string
+  production: number
+}
+
 export interface CropsData {
   state: CropStateRow[]
   districtProduction: CropDistrictRow[]
   districtArea: CropDistrictRow[]
+  fishLandings?: FishLandingRow[]
+  timber?: TimberRow[]
 }
 
 export interface Meta {

@@ -43,10 +43,45 @@ export const CATEGORY_LABEL: Record<string, string> = {
   'CILI KERING': 'Dried chilli',
   BERAS: 'Rice',
   TELUR: 'Eggs',
+  AYAM: 'Chicken',
+  DAGING: 'Meat',
+  'BAHAN LAUT': 'Marine fish & seafood',
+  'IKAN DARAT': 'Freshwater fish',
+  'HASIL LAUT KERING': 'Dried seafood',
   'MINYAK DAN LEMAK': 'Palm cooking oil',
 }
 
 export const categoryLabel = (c: string) => CATEGORY_LABEL[c] ?? tidy(c)
+
+/** Broad sector a price category belongs to, used to group the item list. */
+export type Sector = 'horticulture' | 'livestock' | 'fisheries' | 'palm'
+
+export const SECTOR_LABEL: Record<Sector, string> = {
+  horticulture: 'Crops & horticulture',
+  livestock: 'Livestock & poultry',
+  fisheries: 'Fish & seafood',
+  palm: 'Palm oil',
+}
+
+/** Compact form for the sector switcher, which has to fit on a phone. */
+export const SECTOR_SHORT: Record<Sector, string> = {
+  horticulture: 'Crops',
+  livestock: 'Livestock',
+  fisheries: 'Fish',
+  palm: 'Palm',
+}
+
+const SECTOR_OF: Record<string, Sector> = {
+  AYAM: 'livestock',
+  DAGING: 'livestock',
+  TELUR: 'livestock',
+  'BAHAN LAUT': 'fisheries',
+  'IKAN DARAT': 'fisheries',
+  'HASIL LAUT KERING': 'fisheries',
+  'MINYAK DAN LEMAK': 'palm',
+}
+
+export const sectorOf = (category: string): Sector => SECTOR_OF[category] ?? 'horticulture'
 
 export const CHANNEL_LABEL: Record<string, string> = {
   borong: 'Borong (wholesale)',

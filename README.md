@@ -1,8 +1,8 @@
 # Pokoks
 
-A price dashboard for Malaysian agriculture and horticulture, built on official open data.
-It tracks palm oil from mill gate to shop shelf, daily prices for 119 fresh produce items,
-and the national crop statistics behind them.
+A price dashboard for Malaysian farm, livestock and sea produce, built on official open
+data. It tracks palm oil from mill gate to shop shelf, daily prices for 177 items across
+crops, poultry, meat and seafood, and the production statistics behind them.
 
 Everything is a static React app. There is no backend and no API key: two scripts pull the
 data into JSON files, and the app reads those.
@@ -13,12 +13,13 @@ data into JSON files, and the app reads those.
 indicative fresh fruit bunch farmgate price, gross income per hectare for a smallholder, and
 the refining-and-retail margin between mill gate and a bottle of cooking oil.
 
-**Harga (prices)** — Every fruit, vegetable, rice, egg, onion, bean and spice item in the
-PriceCatcher survey. Sort by price, movement or survey coverage. Open any item for daily
-history, a wet-market-versus-retail comparison, a state breakdown, a forecast and a table.
+**Harga (prices)** — Every fruit, vegetable, rice, egg, onion, bean, spice, chicken cut,
+meat cut, fish and prawn in the PriceCatcher survey, grouped into crops, livestock, fish
+and palm. Sort by price, movement or survey coverage. Open any item for daily history, a
+wet-market-versus-retail comparison, a state breakdown, a forecast and a table.
 
-**Ladang (farms)** — Crop production and planted area by state, crop type and species, plus
-how many premises actually report prices in each state.
+**Ladang (farms)** — Crop production and planted area by state, crop type and species,
+marine fish landings by coast and state, plus how many premises report prices where.
 
 **Sumber (sources)** — Where every number comes from, what the survey covers, and the
 limits worth knowing before you trust a figure.
@@ -53,11 +54,12 @@ fresh fruit bunch assumptions described below.
 | --- | --- | --- |
 | [PriceCatcher](https://open.dosm.gov.my/data-catalogue/pricecatcher) (KPDN, published via DOSM) | Daily retail and wet market prices | CC BY 4.0 |
 | [Crop Area & Production by State](https://open.dosm.gov.my/data-catalogue/crops_state) (DOSM) | National and state crop output | CC BY 4.0 |
-| [Crop Production by District](https://open.dosm.gov.my/data-catalogue/crops_district_production) (DOSM) | Output by species | CC BY 4.0 |
+| [Crop Production by District](https://open.dosm.gov.my/data-catalogue/crops_district_production) (DOSM) | Output by species, including durian | CC BY 4.0 |
+| [Monthly Landings of Marine Fish](https://open.dosm.gov.my/data-catalogue/fish_landings) (DOSM) | Fisheries volume by state and coast | CC BY 4.0 |
 | [MPOB](https://bepi.mpob.gov.my) | Daily crude palm oil price | See MPOB terms |
 
 PriceCatcher ships as monthly Parquet files of roughly two million rows each. The build
-script streams six months of them, keeps only agriculture and horticulture items, and
+script streams six months of them, keeps only farm, livestock and sea produce, and
 aggregates to one row per item per day.
 
 ## Things worth knowing
@@ -76,8 +78,23 @@ the closest available farmgate reference.
 past prices alone, with a hold-out backtest whose error is shown next to every projection.
 It knows nothing about weather, export duty, festival demand or world vegetable oil markets.
 
-**Crop statistics lag prices by years.** Prices are daily; the agriculture census is annual
-and currently ends at 2022.
+**Durian has no price, only production.** PriceCatcher surveys eighteen fruits and durian
+is not one of them, nor are rambutan, mangosteen or langsat. They appear only as tonnages
+in the district crop tables. For durian prices you would need FAMA or a state agriculture
+department, neither of which publishes a machine-readable feed.
+
+**Livestock is priced as meat, not as animals.** Chicken, beef, buffalo, mutton and pork
+are priced at the counter. The only live animals in the survey are live chicken and a live
+pig carcass weight, so there is no cattle or goat auction price.
+
+**Thin survey days are excluded.** Roughly one collection day in eight covers only a
+handful of shops. Those days are kept in the table but left out of every chart, forecast
+and percentage change, because anchoring a change on a one-shop average produces nonsense.
+Items never seen in at least twenty shops on any day are marked thinly surveyed and carry
+no movement figures at all.
+
+**Crop statistics lag prices by years.** Prices are daily. The state crop census is annual
+and ends at 2022, the district tables cover only 2017, and fish landings stop in 2023.
 
 **Some prices are controlled.** The subsidised 1 kg cooking oil packet sells at a government
 ceiling, so it is excluded from the retail average and reported separately.
