@@ -23,6 +23,11 @@ wet-market-versus-retail comparison, a state breakdown, a forecast and a table.
 **Ladang (farms)** — Crop production and planted area by state, crop type and species,
 marine fish landings by coast and state, plus how many premises report prices where.
 
+**Usaha (ventures)** — A startup feasibility calculator for a tilapia pond, a durian
+orchard, or any crop the data covers. It reports startup capital, when the first income
+arrives, profit once mature, payback year and the farm gate price you must clear to break
+even, plus how the result moves if the price does.
+
 **Sumber (sources)** — Where every number comes from, what the survey covers, and the
 limits worth knowing before you trust a figure.
 
@@ -98,6 +103,13 @@ no movement figures at all.
 **Crop statistics lag prices by years.** Prices are daily. The state crop census is annual
 and ends at 2022, the district tables cover only 2017, and fish landings stop in 2023.
 
+**The venture calculator mixes measured data with guesses, and says which is which.**
+Market price comes from PriceCatcher and yield per hectare is derived from the DOSM
+district production and area tables, so both are observations. Every cost is a planning
+assumption, because Malaysia publishes no machine-readable farm cost survey. The fields
+are editable and the measured ones are tagged. Durian is the awkward case: the yield is
+real but there is no price at all, so the operator has to supply one.
+
 **Some prices are controlled.** The subsidised 1 kg cooking oil packet sells at a government
 ceiling, so it is excluded from the retail average and reported separately.
 
@@ -134,6 +146,8 @@ rewrites `/pokoks/` into a Windows path and the asset URLs come out wrong.
 scripts/build-data.mjs   PriceCatcher + DOSM crop tables -> public/data
 scripts/fetch-palm.mjs   MPOB crude palm oil prices -> public/data/palm.json
 src/lib/forecast.ts      Damped-trend smoothing, prediction intervals, backtest
+src/lib/venture.ts       Venture cashflow, payback and break-even arithmetic
+src/lib/ventures.ts      Venture presets and the crop-to-price-item mapping
 src/lib/format.ts        Ringgit, percentage and Bahasa Malaysia label formatting
 src/components/          Panels, charts and shared primitives
 ```

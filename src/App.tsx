@@ -6,15 +6,17 @@ import { longDate } from './lib/format'
 import { PalmPanel } from './components/PalmPanel'
 import { PricesPanel } from './components/PricesPanel'
 import { FarmsPanel } from './components/FarmsPanel'
+import { VenturePanel } from './components/VenturePanel'
 import { ItemDetail } from './components/ItemDetail'
 import { Empty, Panel } from './components/Primitives'
 
-type Tab = 'palm' | 'prices' | 'farms' | 'about'
+type Tab = 'palm' | 'prices' | 'farms' | 'venture' | 'about'
 
 const TABS: { value: Tab; label: string }[] = [
   { value: 'palm', label: 'Sawit' },
   { value: 'prices', label: 'Harga' },
   { value: 'farms', label: 'Ladang' },
+  { value: 'venture', label: 'Usaha' },
   { value: 'about', label: 'Sumber' },
 ]
 
@@ -156,6 +158,8 @@ export default function App() {
                 </Panel>
               )
             ) : null}
+
+            {tab === 'venture' && items ? <VenturePanel items={items} crops={crops} /> : null}
 
             {tab === 'about' && meta ? <About meta={meta} palm={palm} /> : null}
           </>

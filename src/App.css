@@ -665,3 +665,130 @@
 .segmented::-webkit-scrollbar {
   display: none;
 }
+
+/* ---- Venture calculator ---- */
+
+.venture-blurb {
+  margin: 0 0 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  max-width: 76ch;
+}
+
+.venture-pickers {
+  margin-bottom: 14px;
+}
+
+.vgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.vfield {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.vfield-measured {
+  border-left: 3px solid var(--series-1);
+}
+
+.vfield-manual {
+  border-left: 3px solid var(--series-2);
+}
+
+.vfield-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tag {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.tag-measured {
+  color: var(--series-1);
+  background: color-mix(in srgb, var(--series-1) 14%, transparent);
+}
+
+.tag-manual {
+  color: var(--series-2);
+  background: color-mix(in srgb, var(--series-2) 16%, transparent);
+}
+
+.vfield-input {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.vfield-input input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+}
+
+.vfield-input input:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 1px;
+}
+
+.vfield-suffix {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.vfield-note {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.callout-warn {
+  border-left-color: var(--critical);
+}
+
+.row-current th,
+.row-current td {
+  font-weight: 600;
+  background: var(--surface-2);
+}
+
+.num-up {
+  color: var(--good);
+  font-variant-numeric: tabular-nums;
+}
+
+.num-down {
+  color: var(--critical);
+  font-variant-numeric: tabular-nums;
+}
+
+.notice-warn {
+  border-left-color: var(--critical);
+}
